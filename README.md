@@ -39,7 +39,7 @@
 - 上传以下文件：
 
 ```text
-Game4Free-Auto-Renew/
+Game4FreeRenew/
 ├── renew.py
 ├── requirements.txt
 └── .github/
@@ -114,7 +114,7 @@ Game4Free-Auto-Renew/
 
 ### 🌟 觉得好用？给个 Star 支持一下！
 
-[![Star History](https://img.shields.io/github/stars/你的用户名/你的仓库名?style=social)](https://github.com/你的用户名/你的仓库名/stargazers)
+[![Star History](https://img.shields.io/github/stars/wff0325/Game4freeRenew?style=social)](https://github.com/wff0325/Game4freeRenew/stargazers)
 
 **有任何 Bug 或建议，欢迎提 [Issue](../../issues/new)！**
 
@@ -124,4 +124,4 @@ Game4Free-Auto-Renew/
 
 ## 📄 License
 
-[MIT](LICENSE) © 2024 - 让天下没有难续的服务器
+[MIT](LICENSE) © 2026 - 让天下没有难续的服务器
