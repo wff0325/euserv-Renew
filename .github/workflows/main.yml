@@ -1,0 +1,35 @@
+name: Game4Free 每小时自动续期
+
+on:
+  schedule:
+    # 每小时运行一次 (国际标准时间 0分)
+    - cron: '0 * * * *'
+  workflow_dispatch: # 允许手动点击运行按钮
+
+jobs:
+  renew_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装依赖
+        run: |
+          pip install playwright playwright-stealth requests
+          playwright install chromium
+          sudo playwright install-deps chromium
+
+      - name: 执行续期脚本
+        env:
+          # 从 GitHub Secrets 读取变量
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RENEW_URL: ${{ secrets.RENEW_URL }}
+          MC_USERNAME: ${{ secrets.MC_USERNAME }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python renew.py
