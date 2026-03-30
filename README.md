@@ -36,12 +36,16 @@
 
 - 在 GitHub 新建一个仓库（**强烈建议设为 Private** 🔒）
 - 上传以下文件：
+- 上传以下文件：
+
+```text
 Game4Free-Auto-Renew/
 ├── renew.py
 ├── requirements.txt
 └── .github/
     └── workflows/
         └── main.yml
+```
 
 ### 2️⃣ 配置 Secrets（关键步骤）
 
