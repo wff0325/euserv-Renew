@@ -2,9 +2,8 @@ name: Game4Free 自动化续期
 
 on:
   schedule:
-    # 每小时运行一次
     - cron: '0 * * * *'
-  workflow_dispatch: # 允许手动点击运行
+  workflow_dispatch:
 
 jobs:
   renew_job:
@@ -20,9 +19,9 @@ jobs:
 
       - name: 安装运行环境
         run: |
+          python -m pip install --upgrade pip
           pip install playwright playwright-stealth requests
-          python -m playwright install chromium
-          sudo python -m playwright install-deps chromium
+          python -m playwright install --with-deps chromium
 
       - name: 执行 AI 续期脚本
         env:
