@@ -23,7 +23,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🧠 **AI 视觉破解** | 调用 `gemini-2.5-flash` 模型，像真人一样看图过验证，不再卡死在点消防栓和公交车上 |
+| 🧠 **AI 视觉破解** | 调用 gemini 的模型，像真人一样看图过验证，不再卡死在点消防栓和公交车上 |
 | 🤖 **全自动值守** | 默认每小时检查一次，到了续期时间自动下手，真正的" set and forget " |
 | 📱 **状态实时推送** | 成功/未到点/报错，全带图推送到你的 Telegram |
 | ☁️ **云端运行** | 零成本运行，无需本地电脑，无需加速器 |
@@ -51,13 +51,14 @@ Game4FreeRenew/
 
 进入 `Settings -> Secrets and variables -> Actions`，新建以下 Repository Secrets：
 
-| 变量名 | 说明 | 示例格式 |
-|--------|------|----------|
-| `GEMINI_API_KEY` | Google Gemini API 密钥 | `AIzaSyDeP54D0jEX...` |
-| `RENEW_URL` | 你的公共续期页面 | `https://game4free.net/myplay` |
-| `MC_USERNAME` | 服务器用户名 | `dafengzi` |
+| 变量名 | 说明 | 示例 |
+| :--- | :--- | :--- |
+| `GEMINI_API_KEY` | Google Gemini 密钥 | `AIzaSyDeP54D...` |
+| `GEMINI_MODEL` | 模型名称 | `gemini-2.5-flash` |
+| `RENEW_URL` | 续期链接 | `https://game4free.net/myplay` |
+| `MC_USERNAME` | MC ID | `dafengzi` |
 | `TG_BOT_TOKEN` | Telegram Bot Token | `7560020170:AA...` |
-| `TG_CHAT_ID` | 你的 Telegram ID | `6644463336` |
+| `TG_CHAT_ID` | Telegram ID | `...4463...` |
 
 <details>
 <summary>💡 如何获取这些值？（点击展开）</summary>
