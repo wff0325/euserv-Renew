@@ -1,6 +1,6 @@
 <div align="center">
   
-  # 🛠️ Game4Free-Auto-Renew <br><sup>AI 增强版</sup>
+  # 🛠️ Game4FreeRenew <br><sup>AI 增强版</sup>
   
   <!-- 徽章区域，建议添加 -->
   [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg?style=flat-square&logo=python)](https://www.python.org/)
