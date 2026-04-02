@@ -2,9 +2,8 @@ name: EUserv Auto Renewal
 
 on:
   schedule:
-    # 每天UTC时间0点运行（北京时间8点）
     - cron: '0 0 * * *'
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
   push:
     branches: [ main ]
 
@@ -27,28 +26,34 @@ jobs:
       run: |
         ls -la private/
         cp private/main.py main.py
+        cp private/requirements.txt requirements.txt || echo "使用默认requirements.txt"
         ls -la
         
     - name: 🐍 设置Python环境
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.10'  # 使用Python 3.10避免lxml问题
         
-    - name: 📦 安装依赖
+    - name: 📦 安装系统依赖（可选）
       run: |
-        pip install -r requirements.txt
+        sudo apt-get update
+        sudo apt-get install -y libxml2-dev libxslt1-dev python3-dev
+        
+    - name: 📦 安装Python依赖
+      run: |
+        # 确保有requirements.txt
         if [ ! -f requirements.txt ]; then
-          echo "创建默认requirements.txt"
+          echo "创建兼容的requirements.txt"
           echo "requests==2.31.0" > requirements.txt
           echo "beautifulsoup4==4.12.0" >> requirements.txt
           echo "ddddocr==1.4.11" >> requirements.txt
           echo "Pillow==10.1.0" >> requirements.txt
           echo "pyotp==2.9.0" >> requirements.txt
-          echo "lxml==4.12.0" >> requirements.txt
-          pip install requests beautifulsoup4 ddddocr Pillow pyotp lxml
-        else
-          pip install -r requirements.txt
+          echo "lxml>=4.9.0" >> requirements.txt  # 使用兼容版本
         fi
+        
+        pip install wheel
+        pip install -r requirements.txt
         
     - name: 🚀 运行EUserv续费脚本
       run: |
