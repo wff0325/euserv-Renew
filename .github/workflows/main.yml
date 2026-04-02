@@ -2,7 +2,7 @@ name: EUserv 续期
 
 on:
   schedule:
-    - cron: '0 0 7,8 * *'  # UTC时间每个月7号和8号的00:00，实际上会在北京时间的7号和8号早上8点触发
+    - cron: '0 0 2,3 * *'
   workflow_dispatch:  # 允许手动触发工作流
 
 jobs:
