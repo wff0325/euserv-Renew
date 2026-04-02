@@ -1,81 +1,37 @@
-name: EUserv Auto Renewal
+name: EUserv Auto Renew
 
 on:
+  workflow_dispatch: # 手动触发
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+    - cron: '0 0 1,15 * *' # 每月1号和15号运行
 
 jobs:
   renew:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: ⬇️ 检出当前仓库
-      uses: actions/checkout@v4
+      - name: ⬇️ 检出当前仓库
+        uses: actions/checkout@v4
       
-    - name: 📥 检出私有仓库
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ github.repository_owner }}/Renew-Private
-        token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        path: private
+      - name: 📥 检出私有仓库
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Renew-Private
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }} # 需要你在 Secrets 中配置名为 PRIVATE_REPO_TOKEN 的 PAT
+          path: private
         
-    - name: 📂 复制脚本
-      run: |
-        ls -la private/
-        cp private/main.py main.py
-        cp private/requirements.txt requirements.txt || echo "使用默认requirements.txt"
-        ls -la
-        
-    - name: 🐍 设置Python环境
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'  # 使用Python 3.10避免lxml问题
-        
-    - name: 📦 安装系统依赖（可选）
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libxml2-dev libxslt1-dev python3-dev
-        
-    - name: 📦 安装Python依赖
-      run: |
-        # 确保有requirements.txt
-        if [ ! -f requirements.txt ]; then
-          echo "创建兼容的requirements.txt"
-          echo "requests==2.31.0" > requirements.txt
-          echo "beautifulsoup4==4.12.0" >> requirements.txt
-          echo "ddddocr==1.4.11" >> requirements.txt
-          echo "Pillow==10.1.0" >> requirements.txt
-          echo "pyotp==2.9.0" >> requirements.txt
-          echo "lxml>=4.9.0" >> requirements.txt  # 使用兼容版本
-        fi
-        
-        pip install wheel
-        pip install -r requirements.txt
-        
-    - name: 🚀 运行EUserv续费脚本
-      run: |
-        echo "=== 运行续费脚本 ==="
-        python main.py
-        
-    - name: 📝 保存日志
-      if: always()
-      run: |
-        echo "=== 脚本日志 ==="
-        if [ -f euserv_renewal.log ]; then
-          cat euserv_renewal.log
-        else
-          echo "未找到日志文件"
-        fi
-        
-    - name: 📤 上传日志文件
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: renewal-logs
-        path: |
-          euserv_renewal.log
-          main.py
-        retention-days: 7
+      - name: 📂 复制脚本
+        run: |
+          cp private/main.py main.py
+
+      - name: 🐍 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 安装依赖项
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 ddddocr
+
+      - name: 🚀 运行续期脚本
+        run: python main.py
