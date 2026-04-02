@@ -1,13 +1,16 @@
 name: EUserv Auto Renew
 
 on:
-  workflow_dispatch: # 手动触发
+  # 每天北京时间早上 8:00 自动运行一次 (00:00 UTC)
   schedule:
-    - cron: '0 0 1,15 * *' # 每月1号和15号运行
+    - cron: '0 0 * * *'
+  # 支持手动触发运行
+  workflow_dispatch:
 
 jobs:
   renew:
     runs-on: ubuntu-latest
+    
     steps:
       - name: ⬇️ 检出当前仓库
         uses: actions/checkout@v4
@@ -16,7 +19,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/Renew-Private
-          token: ${{ secrets.PRIVATE_REPO_TOKEN }} # 需要你在 Secrets 中配置名为 PRIVATE_REPO_TOKEN 的 PAT
+          # 注意：请确保在 Settings -> Secrets and variables -> Actions 中配置了 PRIVATE_REPO_TOKEN
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }} 
           path: private
         
       - name: 📂 复制脚本
@@ -26,12 +30,22 @@ jobs:
       - name: 🐍 设置 Python 环境
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.10' # ddddocr 在 3.10 下运行最稳定
 
-      - name: 📦 安装依赖项
+      - name: 🛠️ 安装系统依赖
         run: |
-          python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 ddddocr
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx # ddddocr 运行所需的图形库
 
-      - name: 🚀 运行续期脚本
+      - name: 📦 安装 Python 依赖
+        run: |
+          pip install --upgrade pip
+          pip install requests pillow ddddocr beautifulsoup4 imap-tools
+
+      - name: 🚀 执行续期脚本
         run: python main.py
+        env:
+          # 虽然你代码里硬编码了，但通过 ENV 传递可以方便后续不修改代码直接调整
+          DEBUG: "false" 
+          # 如果有需要跳过的合同 ID，可以在 Secrets 里设置，或者直接写在这里
+          SKIP_CONTRACTS: ""
