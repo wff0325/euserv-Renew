@@ -1,46 +1,34 @@
-name: EUserv Auto Renew
+name: EUserv 续期
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 7,8 * *'  # UTC时间每个月7号和8号的00:00，实际上会在北京时间的7号和8号早上8点触发
+  workflow_dispatch:  # 允许手动触发工作流
 
 jobs:
   renew:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: ⬇️ 检出当前仓库
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 📥 检出私有仓库
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/Renew-Private
-          token: ${{ secrets.PRIVATE_REPO_TOKEN }} 
-          path: private
-        
-      - name: 📂 复制脚本
-        run: |
-          cp private/main.py main.py
 
-      - name: 🐍 设置 Python 环境
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: 🛠️ 安装系统依赖
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          # 解决 ddddocr 在 Ubuntu 24.04 上的依赖问题
-          sudo apt-get install -y libgl1 libglib2.0-0
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: 📦 安装 Python 依赖
-        run: |
-          pip install --upgrade pip
-          pip install requests pillow ddddocr beautifulsoup4 imap-tools
-
-      - name: 🚀 执行续期脚本
-        run: python main.py
+      - name: Run EUserv renew script
         env:
-          DEBUG: "false"
+          EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
+          EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
+          DEBUG: ${{ secrets.DEBUG }}
+        run: python euser_renew.py
