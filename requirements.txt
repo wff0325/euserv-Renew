@@ -1,0 +1,6 @@
+ddddocr==1.4.11
+Pillow
+requests
+beautifulsoup4
+lxml
+imap-tools
