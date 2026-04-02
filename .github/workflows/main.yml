@@ -41,4 +41,4 @@ jobs:
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
           DEBUG: ${{ secrets.DEBUG }}
-        run: python renew.py
+        run: python euser_renew.py
