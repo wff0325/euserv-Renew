@@ -1,1 +1,76 @@
+name: EUserv Auto Renewal
 
+on:
+  schedule:
+    # 每天UTC时间0点运行（北京时间8点）
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches: [ main ]
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: ⬇️ 检出当前仓库
+      uses: actions/checkout@v4
+      
+    - name: 📥 检出私有仓库
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/Renew-Private
+        token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        path: private
+        
+    - name: 📂 复制脚本
+      run: |
+        ls -la private/
+        cp private/main.py main.py
+        ls -la
+        
+    - name: 🐍 设置Python环境
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 安装依赖
+      run: |
+        pip install -r requirements.txt
+        if [ ! -f requirements.txt ]; then
+          echo "创建默认requirements.txt"
+          echo "requests==2.31.0" > requirements.txt
+          echo "beautifulsoup4==4.12.0" >> requirements.txt
+          echo "ddddocr==1.4.11" >> requirements.txt
+          echo "Pillow==10.1.0" >> requirements.txt
+          echo "pyotp==2.9.0" >> requirements.txt
+          echo "lxml==4.12.0" >> requirements.txt
+          pip install requests beautifulsoup4 ddddocr Pillow pyotp lxml
+        else
+          pip install -r requirements.txt
+        fi
+        
+    - name: 🚀 运行EUserv续费脚本
+      run: |
+        echo "=== 运行续费脚本 ==="
+        python main.py
+        
+    - name: 📝 保存日志
+      if: always()
+      run: |
+        echo "=== 脚本日志 ==="
+        if [ -f euserv_renewal.log ]; then
+          cat euserv_renewal.log
+        else
+          echo "未找到日志文件"
+        fi
+        
+    - name: 📤 上传日志文件
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: renewal-logs
+        path: |
+          euserv_renewal.log
+          main.py
+        retention-days: 7
