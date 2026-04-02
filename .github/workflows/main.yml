@@ -12,6 +12,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: 📥 下载私库脚本
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Renew-Private
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: private
+
+      - name: 📂 移动脚本到工作目录
+        run: mv private/euser_renew.py euser_renew.py  
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -31,4 +41,4 @@ jobs:
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
           DEBUG: ${{ secrets.DEBUG }}
-        run: python euser_renew.py
+        run: python renew.py
