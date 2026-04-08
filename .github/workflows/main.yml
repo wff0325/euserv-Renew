@@ -2,12 +2,18 @@ name: EUserv 续期
 
 on:
   schedule:
+    # 每月2号和3号运行
     - cron: '0 0 2,3 * *'
   workflow_dispatch:  # 允许手动触发工作流
 
 jobs:
   renew:
     runs-on: ubuntu-latest
+    
+    # 必须添加这个权限，否则最后的 git push 会报 403 错误
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run EUserv renew script
         env:
@@ -42,3 +48,30 @@ jobs:
           SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
           DEBUG: ${{ secrets.DEBUG }}
         run: python euser_renew.py
+
+      # =========================================================
+      # ⏱️ 新增：提交 time.txt 到仓库 (用于解决60天无文件变化的限制)
+      # =========================================================
+      - name: Commit time.txt to repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 配置用户信息
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 更新时间文件
+          CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
+          echo "最后续期运行时间：$CURRENT_TIME" > time.txt
+
+          # 提交更改
+          git add time.txt
+          
+          # 检查是否有文件变化，防止空提交报错
+          if git diff --cached --quiet; then
+            echo "文件无变化，无需提交。"
+          else
+            git commit -m "⏱️ KeepAlive: $CURRENT_TIME"
+            # 推送到当前分支
+            git push origin HEAD:${{ github.ref_name }}
+          fi
