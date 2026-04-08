@@ -49,29 +49,33 @@ jobs:
           DEBUG: ${{ secrets.DEBUG }}
         run: python euser_renew.py
 
-      # =========================================================
-      # ⏱️ 新增：提交 time.txt 到仓库 (用于解决60天无文件变化的限制)
+# =========================================================
+      # ⏱️ 提交 time.txt 到仓库 (增加了 pull rebase 解决冲突)
       # =========================================================
       - name: Commit time.txt to repo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 配置用户信息
+          # 1. 配置用户信息
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 更新时间文件
+          # 2. 更新时间文件
           CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
           echo "最后续期运行时间：$CURRENT_TIME" > time.txt
 
-          # 提交更改
+          # 3. 提交记录
           git add time.txt
           
-          # 检查是否有文件变化，防止空提交报错
           if git diff --cached --quiet; then
-            echo "文件无变化，无需提交。"
+            echo "没有内容变化，跳过提交。"
           else
             git commit -m "⏱️ KeepAlive: $CURRENT_TIME"
-            # 推送到当前分支
+            
+            # 4. 关键步骤：先拉取远程更新，防止冲突
+            # --rebase 可以让你的提交直接排在远程提交之后，保持提交线整洁
+            git pull --rebase origin ${{ github.ref_name }}
+            
+            # 5. 推送
             git push origin HEAD:${{ github.ref_name }}
           fi
