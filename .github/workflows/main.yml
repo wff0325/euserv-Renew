@@ -3,7 +3,7 @@ name: EUserv 续期
 on:
   schedule:
     # 初始运行时间，运行成功后会自动被脚本修改
-    - cron: '0 2 2 5 *'
+    - cron: '00 02 01 05 *'
   workflow_dispatch: 
 
 permissions:
@@ -80,7 +80,7 @@ jobs:
           # 3. 自动修改当前 YML 文件
           FILENAME=$(grep -l "cron:" .github/workflows/*.yml | head -n 1)
           if [ -n "$FILENAME" ]; then
-            sed -i "s@cron: '.*'@cron: '$NEW_CRON'@g" "$FILENAME"
+            sed -i "s@cron: '00 02 01 05 *'@g" "$FILENAME"
             git add "$FILENAME"
           fi
         else
