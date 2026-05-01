@@ -77,7 +77,7 @@ jobs:
           FILENAME=$(grep -l "cron:" .github/workflows/*.yml | head -n 1)
           if [ -n "$FILENAME" ]; then
             # 关键修复点：匹配引号内的任意内容并替换为新的 Cron
-            sed -i "s@cron: '.*'@cron: '$NEW_CRON'@g" "$FILENAME"
+            sed -i "s@cron: '00 02 02 05 *'@g" "$FILENAME"
             git add "$FILENAME"
           fi
         else
