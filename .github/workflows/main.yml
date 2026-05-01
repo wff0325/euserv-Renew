@@ -59,27 +59,25 @@ jobs:
     - name: 🔄 提取日期并更新 Cron & KeepAlive
       if: always()
       run: |
-        echo "--- 脚本输出内容检查 ---"
-        if [ -f renew.log ]; then tail -n 25 renew.log; else echo "log file missing"; fi
-        echo "------------------"
-
         # 配置 Git 用户
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-        # ❗ 关键修复：只提取包含“可续期日期”那一行的日期，防止抓到日志开头的时间戳
+        # 提取日期
         RAW_DATE=$(grep "可续期日期" renew.log | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | tail -1 | xargs || echo "")
         
         if [ -n "$RAW_DATE" ]; then
           echo "✅ 发现真正的下次可续期日期: $RAW_DATE"
           
-          # 生成新 Cron (定在目标日期北京时间 10:00)
+          # 生成新 Cron (UTC 时间)
           NEW_CRON=$(date -d "$RAW_DATE 02:00" -u +"%M %H %d %m *" | tr -d '\n\r')
           echo "🚀 新生成的 UTC Cron: $NEW_CRON"
           
+          # 找到包含 cron 的 workflow 文件并修改
           FILENAME=$(grep -l "cron:" .github/workflows/*.yml | head -n 1)
           if [ -n "$FILENAME" ]; then
-            sed -i "s@cron: '00 02 02 05 *'@g" "$FILENAME"
+            # 关键修复点：匹配引号内的任意内容并替换为新的 Cron
+            sed -i "s@cron: '.*'@cron: '$NEW_CRON'@g" "$FILENAME"
             git add "$FILENAME"
           fi
         else
@@ -91,10 +89,10 @@ jobs:
         echo "最后运行时间：$CURRENT_TIME" > time.txt
         git add time.txt
 
-        # 提交并强制推送
+        # 提交并推送
         if git diff --staged --quiet; then
           echo "没有内容变化，跳过推送。"
         else
-          git commit -m "🔄 EUserv 更新预约与 KeepAlive: ${RAW_DATE:-$CURRENT_TIME}"
+          git commit -m "🔄 EUserv 续期自动任务: 下次可续期 $RAW_DATE"
           git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
         fi
