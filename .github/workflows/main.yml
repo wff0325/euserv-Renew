@@ -59,45 +59,47 @@ jobs:
     - name: 🔄 提取日期并更新 Cron & KeepAlive
       if: always()
       run: |
-        # 配置 Git 用户
+        # 1. 配置 Git 用户
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-        # 1. 提取日期
+        # 2. 提取日期 (格式: 2026-05-02)
         RAW_DATE=$(grep "可续期日期" renew.log | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | tail -1 | xargs || echo "")
         
         if [ -n "$RAW_DATE" ]; then
           echo "✅ 发现真正的下次可续期日期: $RAW_DATE"
           
-          # 生成新 Cron (设定在目标日期 UTC 02:00)
+          # 生成新 Cron (UTC 02:00)
           NEW_CRON=$(date -d "$RAW_DATE 02:00" -u +"%M %H %d %m *" | tr -d '\n\r')
-          echo "🚀 新生成的 UTC Cron: $NEW_CRON"
+          echo "🚀 目标新 Cron: $NEW_CRON"
           
-          # 找到当前工作流文件
           FILENAME=$(grep -l "cron:" .github/workflows/*.yml | head -n 1)
-          
           if [ -n "$FILENAME" ]; then
-            echo "📝 正在更新文件: $FILENAME"
-            # ⭐ 核心修复：
-            # 1. '0,/cron:/' 确保只改文件里出现的【第一个】cron 关键词（即顶部的定时任务）
-            # 2. 's@cron: '.*'@cron: '$NEW_CRON'@' 匹配单引号内的任何旧日期并替换
-            # 3. 删除了末尾多余的 'g'，防止误伤
-            sed -i "0,/cron:/s@cron: '.*'@cron: '$NEW_CRON'@" "$FILENAME"
+            echo "📝 正在尝试修改文件: $FILENAME"
+            
+            # --- 核心改进：更强大的匹配模式 ---
+            # 直接匹配 cron: 后面所有的内容，不管它是单引号、双引号还是没引号
+            # 0,/cron:/ 确保只改第一个（顶部的 schedule）
+            sed -i "0,/cron:/s@cron:.*@cron: '$NEW_CRON'@" "$FILENAME"
+            
+            # 打印修改后的那一行，方便从日志确认是否成功
+            echo "🔍 修改后的 cron 行预览："
+            grep "cron:" "$FILENAME" | head -n 1
+            
             git add "$FILENAME"
           fi
         else
           echo "⚠️ 未在日志中找到“可续期日期”字样，跳过 Cron 更新。"
         fi
 
-        # 2. 更新 time.txt (防止 60 天任务被禁用)
-        CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
-        echo "最后运行时间：$CURRENT_TIME" > time.txt
+        # 3. 更新 time.txt (防止 60 天任务被禁用)
+        echo "最后运行时间：$(date)" > time.txt
         git add time.txt
 
-        # 3. 提交并推送
+        # 4. 提交推送
         if git diff --staged --quiet; then
-          echo "没有内容变化，跳过推送。"
+          echo "没有内容变化（可能日期与上次一致），跳过推送。"
         else
-          git commit -m "🔄 EUserv 续期自动任务: 下次可续期 ${RAW_DATE:-$CURRENT_TIME}"
+          git commit -m "🔄 自动更新: 下次预约 $RAW_DATE"
           git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
         fi
