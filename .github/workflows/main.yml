@@ -2,7 +2,7 @@ name: EUserv 续期
 
 on:
   schedule:
-    # 初始运行时间
+    # 初始运行时间，运行成功后会自动被脚本修改
     - cron: '0 2 2 5 *'
   workflow_dispatch: 
 
@@ -18,7 +18,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        persist-credentials: false
+        persist-credentials: false # 必须关闭，后面用高级 Token 推送
 
     - name: 📥 下载私库脚本
       uses: actions/checkout@v4
@@ -35,13 +35,17 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
+    - name: 📦 Install dependencies (使用你的 requirements.txt)
       run: |
         python -m pip install --upgrade pip
-        # ❗ 修复：安装 Pillow (PIL) 以及脚本可能需要的其他基础库
-        pip install requests beautifulsoup4 Pillow
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "❌ 错误：未在仓库根目录找到 requirements.txt"
+          exit 1
+        fi
 
-    - name: Run EUserv renew script
+    - name: 🚀 Run EUserv renew script
       env:
         EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
         EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
@@ -55,7 +59,7 @@ jobs:
     - name: 🔄 提取日期并更新 Cron & KeepAlive
       if: always()
       run: |
-        echo "--- 日志末尾内容 ---"
+        echo "--- 脚本输出内容检查 ---"
         if [ -f renew.log ]; then tail -n 25 renew.log; else echo "log file missing"; fi
         echo "------------------"
 
@@ -69,7 +73,7 @@ jobs:
         if [ -n "$RAW_DATE" ]; then
           echo "✅ 发现下次可续期日期: $RAW_DATE"
           
-          # 2. 生成新 Cron (定在目标日期北京时间 10:00)
+          # 2. 生成新 Cron (定在目标日期北京时间 10:00，即 UTC 02:00)
           NEW_CRON=$(date -d "$RAW_DATE 02:00" -u +"%M %H %d %m *" | tr -d '\n\r')
           echo "🚀 新生成的 UTC Cron: $NEW_CRON"
           
@@ -80,18 +84,18 @@ jobs:
             git add "$FILENAME"
           fi
         else
-          echo "⚠️ 未提取到日期，可能脚本运行失败或无需更新。"
+          echo "⚠️ 未提取到日期，跳过 Cron 更新。"
         fi
 
-        # 4. 更新 time.txt (防止 60 天任务被禁用)
+        # 4. 更新 time.txt (防止任务被 GitHub 停用)
         CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
         echo "最后运行时间：$CURRENT_TIME" > time.txt
         git add time.txt
 
         # 5. 提交并强制推送
         if git diff --staged --quiet; then
-          echo "没有内容变化，跳过推送。"
+          echo "没有变化，跳过推送。"
         else
-          git commit -m "🔄 EUserv 更新预约与 KeepAlive: ${RAW_DATE:-$CURRENT_TIME}"
+          git commit -m "🔄 EUserv 预约与 KeepAlive 更新: ${RAW_DATE:-$CURRENT_TIME}"
           git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
         fi
