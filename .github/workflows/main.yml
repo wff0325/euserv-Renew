@@ -2,80 +2,98 @@ name: EUserv 续期
 
 on:
   schedule:
-    # 每月2号和3号运行
-    - cron: '0 0 2,3 * *'
-  workflow_dispatch:  # 允许手动触发工作流
+    # 初始运行时间，成功后会自动被脚本修改
+    - cron: '0 2 2 5 *'
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
   renew:
     runs-on: ubuntu-latest
     
-    # 必须添加这个权限，否则最后的 git push 会报 403 错误
-    permissions:
-      contents: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false # 必须关闭，后面用高级 Token 推送
 
-      - name: 📥 下载私库脚本
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/Renew-Private
-          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          path: private
+    - name: 📥 下载私库脚本
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/Renew-Private
+        token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        path: private
 
-      - name: 📂 移动脚本到工作目录
-        run: mv private/euser_renew.py euser_renew.py  
+    - name: 📂 移动脚本到工作目录
+      run: mv private/euser_renew.py euser_renew.py  
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # 如果你有 requirements.txt 请保留，没有的话手动安装常用库
+        pip install requests beautifulsoup4 
 
-      - name: Run EUserv renew script
-        env:
-          EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
-          EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-          SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
-          DEBUG: ${{ secrets.DEBUG }}
-        run: python euser_renew.py
+    - name: Run EUserv renew script
+      env:
+        EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
+        EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
+        DEBUG: ${{ secrets.DEBUG }}
+      # ❗ 关键：记录日志到 renew.log
+      run: python euser_renew.py 2>&1 | tee renew.log
 
-# =========================================================
-      # ⏱️ 提交 time.txt 到仓库 (增加了 pull rebase 解决冲突)
-      # =========================================================
-      - name: Commit time.txt to repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 1. 配置用户信息
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    - name: 🔄 提取日期并更新 Cron & KeepAlive
+      if: always()
+      run: |
+        echo "--- 日志末尾内容 ---"
+        tail -n 20 renew.log || echo "log empty"
+        echo "------------------"
 
-          # 2. 更新时间文件
-          CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
-          echo "最后续期运行时间：$CURRENT_TIME" > time.txt
+        # 配置 Git 用户
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 3. 提交记录
-          git add time.txt
+        # 1. 提取可续期日期 (匹配格式: 2026-05-02)
+        RAW_DATE=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' renew.log | tail -1 | xargs)
+        
+        if [ -n "$RAW_DATE" ]; then
+          echo "✅ 发现下次可续期日期: $RAW_DATE"
           
-          if git diff --cached --quiet; then
-            echo "没有内容变化，跳过提交。"
-          else
-            git commit -m "⏱️ KeepAlive: $CURRENT_TIME"
-            
-            # 4. 关键步骤：先拉取远程更新，防止冲突
-            # --rebase 可以让你的提交直接排在远程提交之后，保持提交线整洁
-            git pull --rebase origin ${{ github.ref_name }}
-            
-            # 5. 推送
-            git push origin HEAD:${{ github.ref_name }}
+          # 2. 生成新 Cron
+          # 设定在目标日期的北京时间 10:00 (UTC 02:00) 运行
+          NEW_CRON=$(date -d "$RAW_DATE 02:00" -u +"%M %H %d %m *" | tr -d '\n\r')
+          echo "🚀 新生成的 UTC Cron: $NEW_CRON"
+          
+          # 3. 自动修改当前 YML 文件
+          FILENAME=$(grep -l "cron:" .github/workflows/*.yml | head -n 1)
+          if [ -n "$FILENAME" ]; then
+            sed -i "s@cron: '.*'@cron: '$NEW_CRON'@g" "$FILENAME"
+            git add "$FILENAME"
           fi
+        else
+          echo "⚠️ 未提取到下次续期日期，保持现有 Cron。"
+        fi
+
+        # 4. 更新 time.txt (防止 60 天任务被禁用)
+        CURRENT_TIME=$(date +'%Y-%m-%d %H:%M:%S')
+        echo "最后运行时间：$CURRENT_TIME" > time.txt
+        git add time.txt
+
+        # 5. 提交并强制推送 (使用你的私库高级 Token)
+        if git diff --staged --quiet; then
+          echo "内容无变化，跳过推送。"
+        else
+          git commit -m "🔄 EUserv 更新预约与 KeepAlive: ${RAW_DATE:-$CURRENT_TIME}"
+          git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
+        fi
