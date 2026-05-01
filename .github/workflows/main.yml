@@ -1,4 +1,62 @@
-- name: 🔄 提取日期并更新 Cron & KeepAlive
+name: EUserv 续期
+
+on:
+  schedule:
+    # 初始运行时间，运行成功后会自动被脚本修改
+    - cron: '0 2 2 5 *'
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false # 必须关闭，后面用高级 Token 推送
+
+    - name: 📥 下载私库脚本
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/Renew-Private
+        token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        path: private
+
+    - name: 📂 移动脚本到工作目录
+      run: mv private/euser_renew.py euser_renew.py  
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Install dependencies (使用你的 requirements.txt)
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "❌ 错误：未在仓库根目录找到 requirements.txt"
+          exit 1
+        fi
+
+    - name: 🚀 Run EUserv renew script
+      env:
+        EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
+        EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
+        DEBUG: ${{ secrets.DEBUG }}
+      run: python euser_renew.py 2>&1 | tee renew.log
+
+    - name: 🔄 提取日期并更新 Cron & KeepAlive
       if: always()
       run: |
         echo "--- 脚本输出内容检查 ---"
