@@ -2,7 +2,7 @@ name: EUserv 续期
 
 on:
   schedule:
-    # 初始运行时间，成功后会自动被脚本修改
+    # 初始运行时间
     - cron: '0 2 2 5 *'
   workflow_dispatch: 
 
@@ -18,7 +18,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        persist-credentials: false # 必须关闭，后面用高级 Token 推送
+        persist-credentials: false
 
     - name: 📥 下载私库脚本
       uses: actions/checkout@v4
@@ -38,8 +38,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # 如果你有 requirements.txt 请保留，没有的话手动安装常用库
-        pip install requests beautifulsoup4 
+        # ❗ 修复：安装 Pillow (PIL) 以及脚本可能需要的其他基础库
+        pip install requests beautifulsoup4 Pillow
 
     - name: Run EUserv renew script
       env:
@@ -50,14 +50,13 @@ jobs:
         EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
         SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
         DEBUG: ${{ secrets.DEBUG }}
-      # ❗ 关键：记录日志到 renew.log
       run: python euser_renew.py 2>&1 | tee renew.log
 
     - name: 🔄 提取日期并更新 Cron & KeepAlive
       if: always()
       run: |
         echo "--- 日志末尾内容 ---"
-        tail -n 20 renew.log || echo "log empty"
+        if [ -f renew.log ]; then tail -n 25 renew.log; else echo "log file missing"; fi
         echo "------------------"
 
         # 配置 Git 用户
@@ -65,13 +64,12 @@ jobs:
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
         # 1. 提取可续期日期 (匹配格式: 2026-05-02)
-        RAW_DATE=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' renew.log | tail -1 | xargs)
+        RAW_DATE=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' renew.log | tail -1 | xargs || echo "")
         
         if [ -n "$RAW_DATE" ]; then
           echo "✅ 发现下次可续期日期: $RAW_DATE"
           
-          # 2. 生成新 Cron
-          # 设定在目标日期的北京时间 10:00 (UTC 02:00) 运行
+          # 2. 生成新 Cron (定在目标日期北京时间 10:00)
           NEW_CRON=$(date -d "$RAW_DATE 02:00" -u +"%M %H %d %m *" | tr -d '\n\r')
           echo "🚀 新生成的 UTC Cron: $NEW_CRON"
           
@@ -82,7 +80,7 @@ jobs:
             git add "$FILENAME"
           fi
         else
-          echo "⚠️ 未提取到下次续期日期，保持现有 Cron。"
+          echo "⚠️ 未提取到日期，可能脚本运行失败或无需更新。"
         fi
 
         # 4. 更新 time.txt (防止 60 天任务被禁用)
@@ -90,9 +88,9 @@ jobs:
         echo "最后运行时间：$CURRENT_TIME" > time.txt
         git add time.txt
 
-        # 5. 提交并强制推送 (使用你的私库高级 Token)
+        # 5. 提交并强制推送
         if git diff --staged --quiet; then
-          echo "内容无变化，跳过推送。"
+          echo "没有内容变化，跳过推送。"
         else
           git commit -m "🔄 EUserv 更新预约与 KeepAlive: ${RAW_DATE:-$CURRENT_TIME}"
           git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
