@@ -3,7 +3,7 @@ name: EUserv 续期
 on:
   schedule:
     # 初始运行时间，运行成功后会自动被脚本修改
-  - cron: '03 05 02 05 *'
+  - cron: '42 06 02 05 *'
   workflow_dispatch: 
 
 permissions:
