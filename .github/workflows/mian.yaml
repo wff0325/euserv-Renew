@@ -1,0 +1,100 @@
+name: EUserv 续期
+
+on:
+  schedule:
+    # 默认每月 2 号 UTC 02:00 运行
+  - cron: '00 02 02 * *'
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - name: 📥 下载私库脚本
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository_owner }}/Renew-Private
+        token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        path: private
+
+    - name: 📂 移动脚本到工作目录
+      run: mv private/euser_renew.py euser_renew.py  
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "❌ 错误：未在仓库根目录找到 requirements.txt"
+          exit 1
+        fi
+
+    - name: 🚀 Run EUserv renew script
+      env:
+        EUSERV_EMAIL: ${{ secrets.EUSERV_EMAIL }}
+        EUSERV_PASSWORD: ${{ secrets.EUSERV_PASSWORD }}
+        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        SKIP_CONTRACTS: ${{ secrets.SKIP_CONTRACTS }}
+        DEBUG: ${{ secrets.DEBUG }}
+      run: python euser_renew.py 2>&1 | tee renew.log
+
+    - name: 🔄 检查结果并设置下一次运行时间
+      if: always()
+      run: |
+        # 1. 配置 Git 用户
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        # 2. 判断运行结果
+        DEFAULT_CRON="00 02 02 * *" # 每月 2 号运行
+
+        # 只要日志里包含了成功标志，不管中间重试了多少次，都算作成功
+        if grep -q -E "续期成功|contract has been extended|未到续期时间|无需续期" renew.log; then
+          echo "✅ 最终续期成功/无需续期，恢复每月 2 号固定运行"
+          NEW_CRON="$DEFAULT_CRON"
+          COMMIT_MSG="🔄 运行成功: 恢复每月 2 号定期运行"
+        else
+          # 只有完全失败时，才设置明天重试
+          TOMORROW_CRON=$(date -d "tomorrow 02:00" -u +"%M %H %d %m *")
+          echo "❌ 彻底运行失败，设置隔天重试 Cron: $TOMORROW_CRON"
+          NEW_CRON="$TOMORROW_CRON"
+          COMMIT_MSG="⚠️ 运行失败: 已设置明天重试 ($TOMORROW_CRON)"
+        fi
+
+        # 3. 更新 Workflow 文件中的 Cron 表达式
+        FILENAME=$(echo "${{ github.workflow_ref }}" | sed -E 's/.*(\.github\/workflows\/[^@]+).*/\1/')
+        if [ -f "$FILENAME" ]; then
+          sed -i "0,/cron:/s@cron:.*@cron: '$NEW_CRON'@" "$FILENAME"
+          git add "$FILENAME"
+        fi
+
+        # 4. 更新 time.txt (防止 60 天无活动被 GitHub 暂停)
+        echo "最后运行时间：$(date)" > time.txt
+        git add time.txt
+
+        # 5. 提交并推送修改
+        if git diff --staged --quiet; then
+          echo "没有内容变化，跳过推送。"
+        else
+          git commit -m "$COMMIT_MSG"
+          CURRENT_BRANCH="${{ github.ref_name }}"
+          git push "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:"$CURRENT_BRANCH" --force
+        fi
